@@ -11,12 +11,12 @@ const PackagesPage = () => {
   const [packages, setPackages] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');          // ✅ added missing state
   const [expandedFeatures, setExpandedFeatures] = useState({});
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [pendingPackage, setPendingPackage] = useState(null);
+  const [activeSubscription, setActiveSubscription] = useState(null);
 
-  // ✅ Use the correct localStorage key (same as in UserContext)
+  // Check login
   const isUserLoggedIn = () => {
     const token = localStorage.getItem('userToken');
     return !!token;
@@ -24,6 +24,9 @@ const PackagesPage = () => {
 
   useEffect(() => {
     fetchPackages();
+    if (isUserLoggedIn()) {
+      checkActiveSubscription();
+    }
   }, []);
 
   const fetchPackages = async () => {
@@ -37,7 +40,7 @@ const PackagesPage = () => {
       }
       setError(null);
     } catch (err) {
-      console.error('Error fetching packages:', err);
+      console.error(err);
       setError(err.response?.data?.message || 'Failed to load packages');
       toast.error('Could not load packages');
     } finally {
@@ -45,13 +48,29 @@ const PackagesPage = () => {
     }
   };
 
+  const checkActiveSubscription = async () => {
+  try {
+    const { data } = await axiosInstance.get('/payments/active-subscription');
+    if (data.success && data.activeSubscription) {
+      setActiveSubscription(data.activeSubscription);
+    }
+  } catch (err) {
+    console.error('Active sub check failed:', err);
+  }
+};
+
   const handleChoosePlan = (pkg) => {
-    if (isUserLoggedIn()) {
-      navigate('/checkout', { state: { selectedPackage: pkg } });
-    } else {
+    if (!isUserLoggedIn()) {
       setPendingPackage(pkg);
       setShowAuthModal(true);
+      return;
     }
+    if (activeSubscription) {
+      const endDate = new Date(activeSubscription.end_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+      toast.error(`You already have an active subscription (${activeSubscription.package_title}) until ${endDate}. Please wait until it expires.`);
+      return;
+    }
+    navigate('/checkout', { state: { selectedPackage: pkg } });
   };
 
   const toggleFeatureExpand = (packageId) => {
@@ -74,12 +93,7 @@ const PackagesPage = () => {
     if (Array.isArray(features)) return features.filter(f => f && f.trim().length > 0);
     if (typeof features === 'string') {
       const lines = features.split('\n');
-      const result = [];
-      lines.forEach(line => {
-        let cleanedLine = line.replace(/^\d+\.\s*/, '').trim();
-        if (cleanedLine) result.push(cleanedLine);
-      });
-      return result;
+      return lines.map(line => line.replace(/^\d+\.\s*/, '').trim()).filter(Boolean);
     }
     return [];
   };
@@ -89,11 +103,6 @@ const PackagesPage = () => {
     if (pkg.duration_days) return `${pkg.duration_days} days`;
     return 'Flexible';
   };
-
-  const filteredPackages = packages.filter(pkg =>
-    pkg.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (pkg.description && pkg.description.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
 
   if (isLoading) {
     return (
@@ -113,12 +122,7 @@ const PackagesPage = () => {
           <div className="text-red-500 text-6xl mb-4">⚠️</div>
           <h3 className="text-xl font-bold text-gray-800 mb-2">Unable to Load Packages</h3>
           <p className="text-gray-600 mb-4">{error}</p>
-          <button 
-            onClick={fetchPackages}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
-          >
-            Try Again
-          </button>
+          <button onClick={fetchPackages} className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">Try Again</button>
         </div>
       </div>
     );
@@ -127,27 +131,15 @@ const PackagesPage = () => {
   return (
     <div className="bg-gray-100 min-h-screen">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Optional search bar – uncomment if needed */}
-        {/* <div className="mb-6">
-          <input
-            type="text"
-            placeholder="Search packages..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full md:w-96 px-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div> */}
-
-        {filteredPackages.length === 0 && (
+        {packages.length === 0 && (
           <div className="text-center py-20 bg-white rounded-2xl shadow-sm">
             <div className="text-gray-400 text-6xl mb-4">📦</div>
             <p className="text-gray-500 text-lg">No packages found</p>
-            <p className="text-gray-400">Try adjusting your search</p>
           </div>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {filteredPackages.map((pkg) => {
+          {packages.map((pkg) => {
             const featuresList = parseFeatures(pkg.features);
             const isExpanded = expandedFeatures[pkg.id] || false;
             const visibleFeatures = isExpanded ? featuresList : featuresList.slice(0, 3);
@@ -218,11 +210,14 @@ const PackagesPage = () => {
 
                   <div className="flex-grow"></div>
 
-                  <button onClick={() => handleChoosePlan(pkg)} className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-semibold text-base flex items-center justify-center gap-2 transition-all duration-300 cursor-pointer shadow-md hover:shadow-lg transform hover:scale-[1.02] active:scale-95 mt-4 flex-shrink-0">
-                    <FaStar className="w-4 h-4 text-yellow-300" />
-                    <span>Choose Plan</span>
-                    <FaArrowRight className="w-4 h-4" />
-                  </button>
+                 <button
+  onClick={() => handleChoosePlan(pkg)}
+  className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl font-semibold text-base flex items-center justify-center gap-2 transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-[1.02] active:scale-95 mt-4 flex-shrink-0"
+>
+  <FaStar className="w-4 h-4 text-yellow-300" />
+  <span>Choose Plan</span>
+  <FaArrowRight className="w-4 h-4" />
+</button>
                 </div>
               </div>
             );
@@ -241,6 +236,7 @@ const PackagesPage = () => {
             const packageToBuy = pendingPackage;
             setPendingPackage(null);
             setShowAuthModal(false);
+            checkActiveSubscription(); // refresh active sub status
             navigate('/checkout', { state: { selectedPackage: packageToBuy } });
           } else {
             navigate('/packages');

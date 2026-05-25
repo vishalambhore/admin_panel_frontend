@@ -1,7 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import toast from 'react-hot-toast';
-import axiosInstance from '../api/axiosInstance';
 import { 
   FaRobot, 
   FaBolt, 
@@ -12,45 +10,14 @@ import {
   FaArrowRight,
   FaPlay,
   FaStar,
-  FaCheckCircle,
-  FaGem,
   FaCloudUploadAlt,
   FaDownload,
-  FaMagic,
-  FaBox,
-  FaRocket,
-  FaCrown
+  FaMagic
 } from 'react-icons/fa';
 import { GiArtificialIntelligence } from 'react-icons/gi';
 
 const HomePage = () => {
   const navigate = useNavigate();
-  const [packages, setPackages] = useState([]);
-  const [isLoadingPackages, setIsLoadingPackages] = useState(true);
-
-  useEffect(() => {
-    fetchPackages();
-  }, []);
-
-  const fetchPackages = async () => {
-    try {
-      setIsLoadingPackages(true);
-      const response = await axiosInstance.get('/packages/all');
-      console.log('API Response:', response.data);
-      
-      if (response.data.success && response.data.packages) {
-        setPackages(response.data.packages);
-      } else {
-        setPackages([]);
-      }
-    } catch (err) {
-      console.error('Error fetching packages:', err);
-      toast.error('Could not load packages');
-      setPackages([]);
-    } finally {
-      setIsLoadingPackages(false);
-    }
-  };
 
   const features = [
     {
@@ -109,62 +76,6 @@ const HomePage = () => {
     { number: "99.9%", label: "Uptime", icon: <FaShieldAlt className="w-6 h-6" /> },
     { number: "24/7", label: "Support", icon: <FaRobot className="w-6 h-6" /> }
   ];
-
-  const getPackageIcon = (title) => {
-    const name = title?.toLowerCase() || '';
-    if (name.includes('premium')) return <FaCrown className="w-6 h-6" />;
-    if (name.includes('max')) return <FaRocket className="w-6 h-6" />;
-    if (name.includes('starter')) return <FaBox className="w-6 h-6" />;
-    return <FaGem className="w-6 h-6" />;
-  };
-
-  const getPackageColor = (title) => {
-    const name = title?.toLowerCase() || '';
-    if (name.includes('premium')) return "from-purple-600 to-pink-600";
-    if (name.includes('max')) return "from-orange-500 to-red-500";
-    if (name.includes('starter')) return "from-gray-600 to-gray-700";
-    return "from-blue-600 to-indigo-600";
-  };
-
-  const formatPrice = (price) => {
-    return parseFloat(price).toLocaleString('en-IN', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    });
-  };
-
-  // ✅ Robust parseFeatures - handles strings, arrays, null, undefined
-  const parseFeatures = (features) => {
-    if (!features) return [];
-    
-    // If it's already an array, return it (filter out empty strings)
-    if (Array.isArray(features)) {
-      return features.filter(f => f && f.trim().length > 0);
-    }
-    
-    // If it's a string, split by newlines and clean numbering
-    if (typeof features === 'string') {
-      const lines = features.split('\n');
-      const result = [];
-      lines.forEach(line => {
-        let cleanedLine = line.replace(/^\d+\.\s*/, '').trim();
-        if (cleanedLine) {
-          result.push(cleanedLine);
-        }
-      });
-      return result;
-    }
-    
-    // Fallback for any other type
-    return [];
-  };
-
-  // Helper to get display duration (prefer duration, fallback to duration_days)
-  const getDisplayDuration = (pkg) => {
-    if (pkg.duration) return pkg.duration;
-    if (pkg.duration_days) return `${pkg.duration_days} days`;
-    return 'month';
-  };
 
   return (
     <div className="overflow-x-hidden">
@@ -323,87 +234,6 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* Pricing Section - Dynamic Packages from API */}
-      <section className="py-24 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">
-              Simple, Transparent Pricing
-            </h2>
-            <p className="text-xl text-gray-600">
-              Choose the plan that fits your needs
-            </p>
-          </div>
-
-          {isLoadingPackages ? (
-            <div className="flex justify-center items-center py-20">
-              <div className="text-center">
-                <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-gray-500">Loading packages...</p>
-              </div>
-            </div>
-          ) : (
-            <div className="grid md:grid-cols-3 gap-8">
-              {packages.map((pkg) => {
-                const featuresList = parseFeatures(pkg.features);
-                const isPopular = pkg.title?.toLowerCase() === 'premium';
-                const packageColor = getPackageColor(pkg.title);
-                const durationDisplay = getDisplayDuration(pkg);
-                
-                return (
-                  <div key={pkg.id} className={`relative bg-white rounded-2xl shadow-lg overflow-hidden transition-all duration-300 hover:scale-105 flex flex-col h-full ${isPopular ? 'ring-2 ring-purple-500 shadow-xl' : ''}`}>
-                    {isPopular && (
-                      <div className="absolute top-0 right-0 z-10">
-                        <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-1 rounded-bl-2xl text-sm font-semibold flex items-center gap-1">
-                          <FaStar className="w-3 h-3" />
-                          Most Popular
-                        </div>
-                      </div>
-                    )}
-                    <div className="p-8 flex flex-col flex-grow">
-                      <div className={`w-16 h-16 bg-gradient-to-r ${packageColor} rounded-2xl flex items-center justify-center text-white mb-6`}>
-                        {getPackageIcon(pkg.title)}
-                      </div>
-                      <h3 className="text-2xl font-bold text-gray-900 mb-2">{pkg.title}</h3>
-                      <div className="mb-6">
-                        <span className="text-4xl font-bold text-gray-900">₹{formatPrice(pkg.price)}</span>
-                        <span className="text-gray-600">/{durationDisplay}</span>
-                        <p className="text-sm text-purple-600 font-semibold mt-1">
-                          {pkg.title === 'Starter' ? '50 Images' : pkg.title === 'Premium' ? '150 Images' : '500 Images'}
-                        </p>
-                      </div>
-                      <div className="flex-grow">
-                        <ul className="space-y-3 mb-8">
-                          {featuresList.slice(0, 4).map((feature, fIdx) => (
-                            <li key={fIdx} className="flex items-center gap-2 text-gray-600">
-                              <FaCheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                              <span className="text-sm">{feature}</span>
-                            </li>
-                          ))}
-                          {featuresList.length === 0 && (
-                            <li className="text-sm text-gray-400 italic">No features listed</li>
-                          )}
-                        </ul>
-                      </div>
-                      <button
-                        onClick={() => navigate('/user-panel/packages')}
-                        className={`w-full cursor-pointer py-3 rounded-xl font-semibold transition-all mt-auto ${
-                          isPopular 
-                            ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:shadow-lg hover:scale-105' 
-                            : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
-                        }`}
-                      >
-                        Get Started
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </section>
-
       {/* Testimonials */}
       <section className="py-24 bg-gradient-to-br from-gray-900 to-purple-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -487,4 +317,3 @@ const HomePage = () => {
 };
 
 export default HomePage;
-

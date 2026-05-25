@@ -30,7 +30,6 @@ const CheckoutPage = () => {
     const handlePayment = async () => {
         setLoading(true);
         try {
-            // 🔥 RECURRING: create subscription
             const { data } = await axiosInstance.post('/payments/create-subscription', {
                 package_id: selectedPackage.id
             });
@@ -41,7 +40,7 @@ const CheckoutPage = () => {
 
             const options = {
                 key: data.key_id,
-                subscription_id: data.subscription_id,   // ✅ subscription_id, not order_id
+                subscription_id: data.subscription_id,
                 name: 'AI Imagify',
                 description: selectedPackage.title,
                 prefill: {
@@ -52,11 +51,11 @@ const CheckoutPage = () => {
                 modal: { ondismiss: () => setLoading(false) },
                 handler: async (response) => {
                     try {
-                        await axiosInstance.post('/payments/verify-subscription', {
-                            razorpay_subscription_id: response.razorpay_subscription_id,
-                            razorpay_payment_id: response.razorpay_payment_id,
-                            razorpay_signature: response.razorpay_signature
-                        });
+                        axiosInstance.post('/payments/verify-subscription', {
+    razorpay_subscription_id: response.razorpay_subscription_id,
+    razorpay_payment_id: response.razorpay_payment_id,
+    razorpay_signature: response.razorpay_signature
+});
                         toast.success('Subscription activated!');
                         navigate('/user-dashboard', { state: { refresh: true } });
                     } catch (err) {
@@ -104,7 +103,6 @@ const CheckoutPage = () => {
                 </button>
 
                 <div className="flex-1 grid lg:grid-cols-3 gap-5 min-h-0">
-                    {/* Left – Package details */}
                     <div className="lg:col-span-2 flex flex-col gap-4 min-h-0 overflow-y-auto pr-1 custom-scroll">
                         <div className="bg-white rounded-2xl shadow-lg overflow-hidden flex-shrink-0">
                             <div className={`bg-gradient-to-r ${planGradient} p-4 text-white`}>
@@ -121,7 +119,7 @@ const CheckoutPage = () => {
                                     </div>
                                     <div className="text-right">
                                         <div className="text-2xl font-black">₹{totalPrice}</div>
-                                        <div className="text-[10px] text-white/70">one-time</div>
+                                        <div className="text-[10px] text-white/70">recurring</div>
                                     </div>
                                 </div>
                             </div>
@@ -148,7 +146,6 @@ const CheckoutPage = () => {
                         </div>
                     </div>
 
-                    {/* Right – Payment summary */}
                     <div className="flex flex-col gap-4">
                         <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
                             <div className="bg-slate-800 px-4 py-3"><h3 className="text-white font-bold text-sm flex items-center gap-2"><IndianRupee size={14} /> Pay now</h3></div>
@@ -157,7 +154,7 @@ const CheckoutPage = () => {
                                     <span className="text-slate-600 text-sm">Package price</span>
                                     <span className="text-xl font-bold">₹{totalPrice}</span>
                                 </div>
-                                <div className="text-right text-[10px] text-slate-400 mt-0.5">No extra taxes</div>
+                                <div className="text-right text-[10px] text-slate-400 mt-0.5">Auto-renews every {selectedPackage.duration_days} days</div>
                                 {user && (
                                     <div className="mt-3 pt-2 border-t">
                                         <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg text-xs">
