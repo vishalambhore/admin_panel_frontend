@@ -164,14 +164,23 @@ const UserDashboard = () => {
     }
   };
 
-  const handleConnectFacebook = () => {
-    const token = getToken();
-    if (!token) {
-      toast.error('Please log in again');
-      return;
-    }
-    window.location.href = `http://192.168.1.11:8000/api/social/facebook/auth?token=${token}`;
-  };
+  const handleConnectFacebook = async () => {
+  const token = getToken();
+  if (!token) {
+    toast.error('Please log in again');
+    return;
+  }
+  try {
+    // Step 1: Get redirect URL from Python (token in header)
+    const response = await pythonApi.get('/social/facebook/auth-url', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const { redirect_url } = response.data;
+    window.location.href = redirect_url;
+  } catch (error) {
+    toast.error('Failed to initiate Facebook login');
+  }
+};
 
   const handleDisconnectFacebook = async () => {
     try {
